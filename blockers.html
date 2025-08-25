@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Containerization Blockers</title>
+<style>
+  body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+  h1 { color: #333; }
+  h2 { color: #555; }
+  ul { list-style-type: disc; margin-left: 20px; }
+  li { margin-bottom: 10px; }
+  .note { background-color: #f0f8ff; border-left: 5px solid #add8e6; padding: 10px; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<h1>General Containerization Blockers</h1>
+
+<p>Containerization offers significant benefits in terms of portability, scalability, and efficiency. However, migrating applications to a containerized environment can present several challenges. Below are common blockers, with a particular focus on persistence issues as requested.</p>
+
+<h2>1. Persistence File Issues (Main Focus)</h2>
+<p>One of the most significant challenges for stateful applications in a containerized environment is managing persistent data. Containers are designed to be ephemeral and stateless, meaning any data written inside a container is lost once the container stops or is removed. This poses a problem for:</p>
+<ul>
+  <li><strong>Databases:</strong> Relational databases (e.g., MySQL, PostgreSQL) and NoSQL databases (e.g., MongoDB, Redis) require persistent storage for their data files.</li>
+  <li><strong>User-Generated Content:</strong> Applications that allow users to upload files (images, documents) need a reliable way to store and retrieve this data independently of the container's lifecycle.</li>
+  <li><strong>Application Logs:</strong> While logs can often be streamed to external logging services, local log files need careful management to ensure they are not lost.</li>
+  <li><strong>Configuration Files:</strong> Dynamic or frequently changing configuration files that are not embedded in the container image need persistent storage.</li>
+  <li><strong>Session Data:</strong> For applications that manage user sessions directly on the file system, persistence is crucial.</li>
+</ul>
+<div class="note">
+  <h3>Solutions for Persistence:</h3>
+  <ul>
+    <li><strong>Volumes:</strong> Docker volumes and Kubernetes Persistent Volumes (PVs) and Persistent Volume Claims (PVCs) are the primary mechanisms to provide persistent storage to containers. These decouple storage from the container lifecycle.</li>
+    <li><strong>External Storage Solutions:</strong> Integrating with external storage solutions like Network File System (NFS), Amazon EFS, Google Filestore, Azure Files, or object storage (S3, GCS, Azure Blob Storage) for static assets.</li>
+    <li><strong>Database-as-a-Service (DBaaS):</strong> Utilizing managed database services (e.g., Amazon RDS, Google Cloud SQL, Azure SQL Database) which handle persistence, backups, and scalability externally.</li>
+    <li><strong>Distributed File Systems:</strong> Using systems like Ceph, GlusterFS, or Rook for highly available and scalable storage within the container orchestration platform.</li>
+    <li><strong>StatefulSets (Kubernetes):</strong> For stateful applications requiring stable network identities and persistent storage, Kubernetes StatefulSets are designed to manage such workloads.</li>
+  </ul>
+</div>
+
+<h2>2. Legacy Applications</h2>
+<ul>
+  <li><strong>Monolithic Architecture:</strong> Breaking down large, monolithic applications into smaller, container-friendly microservices can be a complex and time-consuming process.</li>
+  <li><strong>Tight Coupling:</strong> Applications with strong dependencies on the underlying operating system or specific hardware can be difficult to containerize.</li>
+  <li><strong>In-Memory State:</strong> Applications that heavily rely on in-memory state without proper session replication or external state management can lose data upon container restarts.</li>
+</ul>
+
+<h2>3. Networking Complexity</h2>
+<ul>
+  <li><strong>Service Discovery:</strong> In a dynamic container environment, services need to discover each other reliably.</li>
+  <li><strong>Load Balancing:</strong> Proper load balancing setup is required to distribute traffic across multiple container instances.</li>
+  <li><strong>Network Policies:</strong> Defining and enforcing network isolation and communication rules between containers.</li>
+</ul>
+
+<h2>4. Security Concerns</h2>
+<ul>
+  <li><strong>Image Vulnerabilities:</strong> Using base images with known vulnerabilities or building images with insecure practices.</li>
+  <li><strong>Runtime Security:</strong> Ensuring containers run with the least necessary privileges and monitoring for suspicious activity.</li>
+  <li><strong>Secrets Management:</strong> Securely handling sensitive information like API keys, database credentials, and certificates.</li>
+</ul>
+
+<h2>5. Resource Management</h2>
+<ul>
+  <li><strong>Resource Limits:</strong> Incorrectly setting CPU and memory limits can lead to performance issues or resource starvation.</li>
+  <li><strong>Storage Provisioning:</strong> Ensuring adequate and performant storage is available for all containerized applications.</li>
+</ul>
+
+<h2>6. Monitoring and Logging</h2>
+<ul>
+  <li><strong>Centralized Logging:</strong> Containers typically output logs to stdout/stderr, requiring a robust centralized logging solution to collect and analyze them.</li>
+  <li><strong>Distributed Tracing:</strong> Monitoring transactions across multiple microservices in a distributed containerized environment.</li>
+</ul>
+
+<h2>7. Orchestration Complexity</h2>
+<ul>
+  <li><strong>Learning Curve:</strong> Adopting and managing container orchestration platforms like Kubernetes requires significant expertise.</li>
+  <li><strong>Deployment Strategies:</strong> Implementing effective deployment strategies (e.g., rolling updates, blue/green deployments, canary deployments) for containerized applications.</li>
+</ul>
+
+<h2>8. Data Migration</h2>
+<ul>
+  <li>Migrating existing data from traditional environments to container-friendly persistent storage solutions can be challenging and requires careful planning to minimize downtime.</li>
+</ul>
+
+</body>
+</html>
