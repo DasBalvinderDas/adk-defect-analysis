@@ -1,0 +1,98 @@
+
+        <html>
+          <head>
+            <title>Containerization Blockers Report</title>
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              th, td {
+                border: 1px solid #dddddd;
+                text-align: left;
+                padding: 8px;
+              }
+              th {
+                background-color: #f2f2f2;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>Containerization Blockers Report</h2>
+            <table>
+              <tr>
+                <th>Issue Name</th>
+                <th>Exists?</th>
+                <th>Explanation</th>
+                <th>Impact</th>
+                <th>Recommended GCP Option</th>
+              </tr>
+              
+            <tr>
+              <td>Persistence to local filesystem (SQLite DB)</td>
+              <td>Yes</td>
+              <td>The application uses SQLite with a hardcoded path `/var/lib/myapp/data.db`, implying local file-based persistence. Containers are ephemeral by nature, meaning data stored directly on the container's filesystem will be lost upon container restart or deletion.</td>
+              <td>High</td>
+              <td>Cloud SQL (for managed relational databases like PostgreSQL/MySQL), Cloud Spanner (for globally distributed databases), Firestore (for NoSQL). For data requiring persistent file storage, consider Cloud Storage or Filestore (for shared file systems).</td>
+            </tr>
+            
+            <tr>
+              <td>Hardcoded sensitive configuration values</td>
+              <td>Yes</td>
+              <td>An API key `sk_test_1234567890abcdef` is hardcoded directly in the source code. Sensitive information should never be hardcoded, as it poses a significant security risk and makes deployment configuration inflexible.</td>
+              <td>High</td>
+              <td>Secret Manager (for centralizing and managing secrets), Kubernetes Secrets (when deploying on GKE for injecting secrets as environment variables or files).</td>
+            </tr>
+            
+            <tr>
+              <td>Hardcoded privileged network port</td>
+              <td>Yes</td>
+              <td>The application listens on port `80`. In containerized environments, applications should typically listen on non-privileged ports (e.g., 8080) to avoid requiring root privileges within the container. The container orchestration layer handles mapping external traffic to these internal ports.</td>
+              <td>Medium</td>
+              <td>GKE, Cloud Run, App Engine Flex (these services handle port mapping and typically expect applications to listen on non-privileged ports like 8080).</td>
+            </tr>
+            
+            <tr>
+              <td>Logging to file instead of stdout/stderr</td>
+              <td>Yes</td>
+              <td>The application is configured to write logs to `/tmp/app.log`. In containers, logs should be directed to stdout and stderr so that the container runtime and orchestration platform can capture, aggregate, and manage them centrally.</td>
+              <td>High</td>
+              <td>Cloud Logging (automatically collects stdout/stderr logs from GKE, Cloud Run, App Engine, Compute Engine instances, etc., making them searchable and monitorable).</td>
+            </tr>
+            
+            <tr>
+              <td>Accessing host-specific filesystem paths</td>
+              <td>Yes</td>
+              <td>The application attempts to read `/etc/passwd` and writes heartbeats to `/tmp/heartbeat.txt`. Directly accessing paths commonly found on host systems breaks container isolation and portability. `/tmp` is ephemeral and not suitable for persistent health signals.</td>
+              <td>High</td>
+              <td>Avoid accessing host filesystems directly. For shared storage, consider Cloud Storage or Filestore. For container health, implement proper health checks (see 'Missing health checks').</td>
+            </tr>
+            
+            <tr>
+              <td>Running shell commands via subprocess</td>
+              <td>Yes</td>
+              <td>The application uses `subprocess.check_output` to run `ls -l /tmp`. Executing shell commands within a web application is generally an anti-pattern, increases the attack surface, and introduces OS-level dependencies, making the application less portable and more brittle.</td>
+              <td>Medium</td>
+              <td>Refactor code to use Python's built-in modules (e.g., `os.listdir`) for file system operations. For system-level interactions, consider using specific client libraries or APIs of the container orchestration platform.</td>
+            </tr>
+            
+            <tr>
+              <td>Missing health checks and graceful shutdown signals</td>
+              <td>Yes</td>
+              <td>The background worker runs in an infinite loop without proper signal handling, and the Flask app uses `app.run` (dev server). Containers need to respond to termination signals (e.g., SIGTERM) for graceful shutdown, and container orchestrators rely on explicit health checks (e.g., HTTP probes) to determine service availability.</td>
+              <td>High</td>
+              <td>Kubernetes Liveness and Readiness probes (for GKE), Cloud Run container health checks (HTTP or TCP probes). Use a production-ready WSGI server like Gunicorn or uWSGI for better process management and signal handling.</td>
+            </tr>
+            
+            <tr>
+              <td>Unmanaged background thread</td>
+              <td>Yes</td>
+              <td>A background thread is started and runs indefinitely. While `daemon=True` causes it to exit with the main process, managing multiple long-running processes within a single container (especially without a process manager) complicates resource management, logging, and scaling. The preferred container pattern is one main process per container.</td>
+              <td>Medium</td>
+              <td>If the background task is truly separate, consider running it as a distinct container (e.g., a separate deployment in GKE, or a Cloud Run Job). For asynchronous tasks, use Cloud Tasks with Cloud Functions/Cloud Run, or Pub/Sub with push subscriptions.</td>
+            </tr>
+            
+            </table>
+          </body>
+        </html>
+        
