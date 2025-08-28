@@ -1,0 +1,82 @@
+
+        <html>
+          <head>
+            <title>Containerization Blockers Report</title>
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              th, td {
+                border: 1px solid #dddddd;
+                text-align: left;
+                padding: 8px;
+              }
+              th {
+                background-color: #f2f2f2;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>Containerization Blockers Report</h2>
+            <table>
+              <tr>
+                <th>Issue Name</th>
+                <th>Exists?</th>
+                <th>Explanation</th>
+                <th>Impact</th>
+                <th>Recommended GCP Option</th>
+              </tr>
+              
+            <tr>
+              <td>Persistence file issues (local SQLite DB, heartbeat file)</td>
+              <td>Yes</td>
+              <td>The application uses a local SQLite database file (`/var/lib/myapp/data.db`) and writes a heartbeat file (`/tmp/heartbeat.txt`). These paths are hardcoded and non-ephemeral, making container restarts or scaling difficult, leading to data loss or inconsistency.</td>
+              <td>High</td>
+              <td>Cloud SQL for managed database, Cloud Storage or Filestore for shared persistent files, or refactor to use ephemeral storage where appropriate (e.g., in-memory DB or logs to stdout).</td>
+            </tr>
+            
+            <tr>
+              <td>Hardcoded configuration values (API Key, Port)</td>
+              <td>Yes</td>
+              <td>The API key and application port (80) are hardcoded directly in the source code. This is a security risk for secrets and prevents flexible deployment across environments or different port assignments required by container orchestrators.</td>
+              <td>High</td>
+              <td>Secret Manager for secrets, Environment Variables (e.g., via Cloud Run, GKE, App Engine Flex) for configuration values like ports.</td>
+            </tr>
+            
+            <tr>
+              <td>Improper host file system access</td>
+              <td>Yes</td>
+              <td>The application attempts to write to fixed host paths (`/var/lib/myapp`, `/tmp`) and read sensitive host files (`/etc/passwd`). This couples the container to the host filesystem, reducing portability and introducing security vulnerabilities if not properly isolated via volume mounts.</td>
+              <td>High</td>
+              <td>Use Kubernetes Persistent Volumes/Claims for persistent storage, avoid reading host-specific files. Run containers with minimal privileges and appropriate security contexts.</td>
+            </tr>
+            
+            <tr>
+              <td>OS-level dependencies (subprocess execution)</td>
+              <td>Yes</td>
+              <td>The application executes shell commands (`ls -l /tmp`) via `subprocess` from a web endpoint. While basic commands might be present, relying on arbitrary shell commands in a web context is a major security risk and tightly couples the application to the container's underlying OS environment.</td>
+              <td>High</td>
+              <td>Refactor to use language-native libraries instead of subprocess calls. Ensure base images provide necessary binaries. Apply least privilege principles.</td>
+            </tr>
+            
+            <tr>
+              <td>Missing health checks and graceful shutdown</td>
+              <td>Yes</td>
+              <td>The application lacks proper health check endpoints and a graceful shutdown mechanism for both the Flask app and the background thread (which runs an infinite loop). This can lead to unmanaged processes and abrupt termination during redeployments or scaling events.</td>
+              <td>High</td>
+              <td>Implement `/healthz` or `/readyz` endpoints. Handle `SIGTERM` signals for graceful shutdown. Use Kubernetes Liveness/Readiness probes or Cloud Run health checks.</td>
+            </tr>
+            
+            <tr>
+              <td>Logging to file instead of stdout/stderr</td>
+              <td>Yes</td>
+              <td>The application is configured to write logs to a file (`/tmp/app.log`). In containerized environments, logs should be written to standard output (stdout) and standard error (stderr) for centralized collection by the container runtime and logging services.</td>
+              <td>Medium</td>
+              <td>Configure logging to stdout/stderr. Cloud Logging automatically ingests these streams. Use structured logging (e.g., JSON) for easier parsing and analysis.</td>
+            </tr>
+            
+            </table>
+          </body>
+        </html>
+        
