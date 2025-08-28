@@ -1,0 +1,106 @@
+
+        <html>
+          <head>
+            <title>Containerization Blockers Report</title>
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              th, td {
+                border: 1px solid #dddddd;
+                text-align: left;
+                padding: 8px;
+              }
+              th {
+                background-color: #f2f2f2;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>Containerization Blockers Report</h2>
+            <table>
+              <tr>
+                <th>Issue Name</th>
+                <th>Exists?</th>
+                <th>Explanation</th>
+                <th>Impact</th>
+                <th>Recommended GCP Option</th>
+              </tr>
+              
+            <tr>
+              <td>Local Persistence (SQLite DB)</td>
+              <td>Yes</td>
+              <td>The application uses a hardcoded local path (`/var/lib/myapp/data.db`) for SQLite persistence. Container filesystems are ephemeral, leading to data loss on container restart or re-deployment.</td>
+              <td>High</td>
+              <td>Cloud SQL (for relational databases), Cloud Storage (for file-based data), or external managed storage solutions.</td>
+            </tr>
+            
+            <tr>
+              <td>Hardcoded API Key</td>
+              <td>Yes</td>
+              <td>A sensitive API key (`API_KEY`) is hardcoded directly in the source code. This is a significant security vulnerability and prevents flexible deployment across different environments.</td>
+              <td>High</td>
+              <td>Secret Manager (for sensitive data), Environment Variables (accessed via Cloud Run or GKE), or Kubernetes Secrets.</td>
+            </tr>
+            
+            <tr>
+              <td>Privileged Port Binding</td>
+              <td>Yes</td>
+              <td>The application attempts to bind to port 80, which is a privileged port (<1024). Containers typically run as non-root users and cannot bind to such ports without elevated (and discouraged) permissions.</td>
+              <td>Medium</td>
+              <td>Configure the application to listen on a non-privileged port (e.g., 8080). GCP Load Balancers or Ingress can map external 80/443 traffic to the container's internal port.</td>
+            </tr>
+            
+            <tr>
+              <td>Local File Logging</td>
+              <td>Yes</td>
+              <td>Logs are written to an ephemeral file (`/tmp/app.log`) inside the container. This makes logs difficult to access, centralize, and analyze, hindering observability in a containerized environment.</td>
+              <td>High</td>
+              <td>Cloud Logging (by ensuring logs are written to `stdout`/`stderr`), Cloud Monitoring for metric collection.</td>
+            </tr>
+            
+            <tr>
+              <td>Direct Host Filesystem Access</td>
+              <td>Yes</td>
+              <td>The application attempts to read a specific host-dependent file (`/etc/passwd`). This violates container isolation principles, poses a security risk, and severely limits application portability.</td>
+              <td>High</td>
+              <td>Redesign the application to be self-contained and avoid direct host filesystem dependencies. Rely on configuration or services for needed information.</td>
+            </tr>
+            
+            <tr>
+              <td>Unnecessary Subprocess Execution</td>
+              <td>Yes</td>
+              <td>The application executes shell commands (`ls -l /tmp`) using `subprocess.check_output`. This introduces OS-level dependencies, potential security vulnerabilities, and is generally an anti-pattern for portable containerized applications.</td>
+              <td>Medium</td>
+              <td>Refactor the application to use built-in language features instead of shelling out. If external tools are critical, ensure they are securely integrated and managed within the container image.</td>
+            </tr>
+            
+            <tr>
+              <td>Ineffective Internal Health Check</td>
+              <td>Yes</td>
+              <td>An internal background thread writes a 'heartbeat' to an ephemeral file (`/tmp/heartbeat.txt`). This file is not externally accessible or usable by container orchestrators for health monitoring, and the loop lacks graceful exit conditions.</td>
+              <td>High</td>
+              <td>Implement standard HTTP health check endpoints (`/healthz`, `/readiness`) that return status codes. Utilize Cloud Monitoring for application metrics and external signals.</td>
+            </tr>
+            
+            <tr>
+              <td>Unmanaged Background Thread Lifecycle</td>
+              <td>Yes</td>
+              <td>A daemon thread runs in an infinite loop (`while True`) without proper management or signal handling. This can prevent the container from performing a graceful shutdown when a `SIGTERM` signal is received from the orchestrator.</td>
+              <td>Medium</td>
+              <td>Design containers to run a single primary process. For background tasks, consider message queues (Cloud Pub/Sub) or ensure all threads listen for shutdown signals to exit cleanly.</td>
+            </tr>
+            
+            <tr>
+              <td>Flask Development Server in Production</td>
+              <td>Yes</td>
+              <td>The application uses Flask's built-in development server (`app.run()`) for deployment. This server is not designed for production use, lacking robustness, scalability, and proper concurrency management required for containerized environments.</td>
+              <td>High</td>
+              <td>Use a production-ready WSGI server like Gunicorn or uWSGI to run Flask applications in a containerized environment, ensuring better performance and reliability.</td>
+            </tr>
+            
+            </table>
+          </body>
+        </html>
+        
