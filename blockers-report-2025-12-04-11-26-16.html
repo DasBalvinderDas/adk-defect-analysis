@@ -1,0 +1,106 @@
+
+        <html>
+          <head>
+            <title>Containerization Blockers Report</title>
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              th, td {
+                border: 1px solid #dddddd;
+                text-align: left;
+                padding: 8px;
+              }
+              th {
+                background-color: #f2f2f2;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>Containerization Blockers Report</h2>
+            <table>
+              <tr>
+                <th>Issue Name</th>
+                <th>Exists?</th>
+                <th>Explanation</th>
+                <th>Impact</th>
+                <th>Recommended GCP Option</th>
+              </tr>
+              
+            <tr>
+              <td>Persistence to host filesystem for SQLite database</td>
+              <td>Yes</td>
+              <td>The application stores its SQLite database at a fixed path (`/var/lib/myapp/data.db`) on the local filesystem. In containers, this path is ephemeral and lost upon container restart or deletion, leading to data loss.</td>
+              <td>High</td>
+              <td>Cloud SQL (for managed database), Cloud Filestore (for shared persistent volume), Memorystore (for caching/ephemeral data).</td>
+            </tr>
+            
+            <tr>
+              <td>Hardcoded sensitive configuration (API Key)</td>
+              <td>Yes</td>
+              <td>A sensitive API key (`API_KEY`) is hardcoded directly into the source code. This is a security risk and makes configuration management across different environments difficult, requiring code changes and rebuilds for updates.</td>
+              <td>High</td>
+              <td>Secret Manager, Environment Variables (e.g., loaded as Kubernetes Secrets), HashiCorp Vault (if self-managed).</td>
+            </tr>
+            
+            <tr>
+              <td>Use of privileged network port (Port 80)</td>
+              <td>Yes</td>
+              <td>The application attempts to bind to port 80. In containerized environments, it's best practice to run applications as non-root users, which prevents binding to privileged ports (below 1024).</td>
+              <td>Medium</td>
+              <td>Expose internal container port (e.g., 8080) and use Kubernetes Service or Cloud Load Balancing to map external traffic to it.</td>
+            </tr>
+            
+            <tr>
+              <td>Logging to local file system instead of stdout/stderr</td>
+              <td>Yes</td>
+              <td>Logs are directed to `/tmp/app.log` within the container's ephemeral filesystem. This prevents centralized log collection, monitoring, and analysis by container orchestration platforms which typically collect logs from stdout/stderr.</td>
+              <td>Medium</td>
+              <td>Cloud Logging (integrates with GKE, Cloud Run, App Engine), Fluentd/Fluent Bit.</td>
+            </tr>
+            
+            <tr>
+              <td>Attempts to read host filesystem paths</td>
+              <td>Yes</td>
+              <td>The `list_host_path` function attempts to read `/etc/passwd`. This indicates an assumption about accessing the underlying host's filesystem, breaking container isolation and posing a security risk if volumes are improperly mounted.</td>
+              <td>High</td>
+              <td>Refactor application to avoid direct host filesystem access. Leverage container's own filesystem or managed storage services.</td>
+            </tr>
+            
+            <tr>
+              <td>Direct use of shell commands via `subprocess`</td>
+              <td>Yes</td>
+              <td>The `run_shell` function uses `subprocess.check_output` to execute shell commands. This introduces OS-level dependencies, potential security vulnerabilities (command injection), and reduces portability across different container images.</td>
+              <td>Medium</td>
+              <td>Refactor to use native Python libraries for filesystem operations or container-native tools. Avoid executing arbitrary shell commands.</td>
+            </tr>
+            
+            <tr>
+              <td>Unmanaged background thread without graceful shutdown</td>
+              <td>Yes</td>
+              <td>A `background_worker` thread runs indefinitely without proper signal handling (e.g., SIGTERM) to allow for graceful shutdown. This can lead to abrupt container termination, potential resource leaks, or incomplete operations.</td>
+              <td>High</td>
+              <td>Implement signal handling (e.g., `signal` module) for graceful shutdown, use Kubernetes Liveness/Readiness probes, consider separate Cloud Run Jobs or Pub/Sub with Cloud Functions/Run for background tasks.</td>
+            </tr>
+            
+            <tr>
+              <td>Writing ephemeral 'heartbeat' file to container filesystem</td>
+              <td>Yes</td>
+              <td>The background thread writes an 'alive' message to `/tmp/heartbeat.txt`. While `/tmp` is common for temporary files, this method is unreliable for monitoring container health and does not persist across restarts.</td>
+              <td>Low</td>
+              <td>Implement HTTP health check endpoints (Liveness/Readiness probes in Kubernetes/Cloud Run) for robust health monitoring, integrated with Cloud Monitoring.</td>
+            </tr>
+            
+            <tr>
+              <td>Missing container health checks and graceful shutdown hooks</td>
+              <td>Yes</td>
+              <td>The application lacks explicit health check endpoints (e.g., `/healthz`) and signal handling (e.g., for SIGTERM) to inform orchestrators about its state or allow graceful termination, leading to service disruption during deployments.</td>
+              <td>High</td>
+              <td>Implement HTTP endpoints for Liveness and Readiness probes (e.g., `/health`, `/ready`). Add signal handlers for graceful shutdown (e.g., cleaning up connections).</td>
+            </tr>
+            
+            </table>
+          </body>
+        </html>
+        
