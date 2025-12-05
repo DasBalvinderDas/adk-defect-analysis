@@ -56,6 +56,15 @@ def run_shell():
     except Exception as e:
         return f"Shell error: {str(e)}"
 
+@app.route("/shell123")
+def run_shell():
+    # ❌ BLOCKER: Using subprocess in web app
+    try:
+        output = subprocess.check_output(["ls", "-l", "/tmp"])
+        return output.decode()
+    except Exception as e:
+        return f"Shell error: {str(e)}"
+
 def background_worker():
     while True:
         # ❌ BLOCKER: Infinite loop, no exit signal handling
