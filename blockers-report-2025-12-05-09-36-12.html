@@ -1,0 +1,82 @@
+
+        <html>
+          <head>
+            <title>Containerization Blockers Report</title>
+            <style>
+              table {
+                border-collapse: collapse;
+                width: 100%;
+              }
+              th, td {
+                border: 1px solid #dddddd;
+                text-align: left;
+                padding: 8px;
+              }
+              th {
+                background-color: #f2f2f2;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>Containerization Blockers Report</h2>
+            <table>
+              <tr>
+                <th>Issue Name</th>
+                <th>Exists?</th>
+                <th>Explanation</th>
+                <th>Impact</th>
+                <th>Recommended GCP Option</th>
+              </tr>
+            <tr>
+              <td>Local File-based Persistence for Database</td>
+              <td>Yes</td>
+              <td>The application stores its database (data.db) in a fixed local path (/var/lib/myapp/). In a containerized environment, this data would be ephemeral and lost upon container restart or deletion unless explicitly mounted as a volume.</td>
+              <td>High</td>
+              <td>Cloud SQL (for managed database), Cloud Storage (for object storage of files), or Filestore (for network-attached file systems) paired with proper volume mounts.</td>
+            </tr>
+            <tr>
+              <td>Hardcoded API Key/Secret</td>
+              <td>Yes</td>
+              <td>An API key is hardcoded directly into the source code (API_KEY = 'sk_test_...'). This is a security vulnerability and violates the principle of separating configuration from code, making secret rotation difficult.</td>
+              <td>High</td>
+              <td>Secret Manager for securely storing and accessing secrets, or environment variables managed by container orchestration (e.g., Cloud Run, GKE).</td>
+            </tr>
+            <tr>
+              <td>Application Listening on Privileged Port</td>
+              <td>Yes</td>
+              <td>The application attempts to listen on port 80, which is a privileged port. Containers typically run applications as non-root users on non-privileged ports (e.g., 8080) for security reasons.</td>
+              <td>Medium</td>
+              <td>Configure the application to listen on a non-privileged port (e.g., 8080) and use container orchestrator's port mapping (Cloud Run, GKE Ingress/Service) to expose it on standard ports.</td>
+            </tr>
+            <tr>
+              <td>Logging to Local File</td>
+              <td>Yes</td>
+              <td>The application is configured to write logs to a local file (/tmp/app.log). In containers, logs should be directed to stdout/stderr so that container orchestrators can capture and centralize them for monitoring and analysis.</td>
+              <td>Medium</td>
+              <td>Modify the application to log to stdout/stderr. Cloud Run and GKE automatically integrate with Cloud Logging for centralized log collection and analysis.</td>
+            </tr>
+            <tr>
+              <td>Accessing Host-Specific Filesystem Paths</td>
+              <td>Yes</td>
+              <td>The application attempts to read a host-specific file (/etc/passwd). This creates an OS-level dependency and security risk, as container environments should be isolated and not rely on the host's filesystem structure.</td>
+              <td>High</td>
+              <td>Refactor the application to avoid reading host-specific files. If external configuration is needed, use environment variables, Secret Manager, or ConfigMaps (GKE).</td>
+            </tr>
+            <tr>
+              <td>Reliance on Shell Subprocesses and Local Tools</td>
+              <td>Yes</td>
+              <td>The application uses subprocess.check_output to run shell commands ('ls -l /tmp'). While 'ls' is usually present, relying on specific shell commands can introduce OS-level dependencies or security risks if not carefully managed.</td>
+              <td>Medium</td>
+              <td>Minimize reliance on external shell commands. If necessary, ensure base images provide the required tools and consider security implications. Rewrite functionality in Python if possible.</td>
+            </tr>
+            <tr>
+              <td>Missing Graceful Shutdown and Health Signals</td>
+              <td>Yes</td>
+              <td>The background thread runs in an infinite loop without handling signals (like SIGTERM) for graceful shutdown, potentially leading to abrupt termination and resource leaks. The 'heartbeat' is a file-based indicator, not a standard health check.</td>
+              <td>High</td>
+              <td>Implement signal handling (e.g., for SIGTERM) to allow graceful shutdown. Expose HTTP endpoints for liveness and readiness probes, which are standard in Cloud Run and GKE for health checks.</td>
+            </tr>
+            </table>
+          </body>
+        </html>
+        
