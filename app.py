@@ -5,6 +5,8 @@ import subprocess
 import logging
 from flask import Flask, request
 
+#Comment added to test bugfix-doc-gen-agent
+
 app = Flask(__name__)
 
 # ❌ BLOCKER: Writes to host filesystem (local persistence)
