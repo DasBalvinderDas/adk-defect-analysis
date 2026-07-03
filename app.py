@@ -7,8 +7,8 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-# ❌ BLOCKER: Writes to host filesystem (local persistence)
-DB_PATH = "/var/lib/myapp/data.db"  # NOT recommended for containers
+# ✅ FIX: Made DB_PATH configurable via environment variable with a container-safe default
+DB_PATH = os.getenv("DB_PATH", "/app/data/data.db")
 
 # ❌ BLOCKER: Hardcoded secret (Security Issue)
 API_KEY = "sk_test_1234567890abcdef"
