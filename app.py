@@ -13,8 +13,8 @@ DB_PATH = "/var/lib/myapp/data.db"  # NOT recommended for containers
 # ❌ BLOCKER: Hardcoded secret (Security Issue)
 API_KEY = "sk_test_1234567890abcdef"
 
-# ❌ BLOCKER: Uses privileged port
-PORT = 80  # Should be 8080+ in containers
+# Uses a non-privileged port to avoid PermissionError
+PORT = 5000  # Changed from 80 to 5000
 
 # ❌ BLOCKER: Logging to file instead of stdout
 logging.basicConfig(filename='/tmp/app.log', level=logging.INFO)
