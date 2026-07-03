@@ -21,22 +21,27 @@ def ensure_db_directory() -> None:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
-# BLOCKER: Hardcoded secret Security Issue
-API_KEY = "sk_test_1234567890abcdef"
+# FIX: API_KEY is now loaded from environment variables
+API_KEY = os.getenv("API_KEY", "NOT_A_TEST_KEY")
 
-# BLOCKER: Uses privileged port
-PORT = 80  # Should be 8080+ in containers
+# FIX: PORT is now configurable and defaults to a non-privileged port
+PORT = int(os.getenv("PORT", 8080))
 
-# BLOCKER: Logging to file instead of stdout
-LOG_FILE_PATH = "/tmp/app.log"
-logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO)
+# FIX: Logging to stdout by default, configurable via environment
+LOG_FILE_PATH = os.getenv("LOG_FILE_PATH", "stdout")
+if LOG_FILE_PATH == "stdout":
+    logging.basicConfig(level=logging.INFO) # No filename for stdout logging
+else:
+    logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO)
 
-# BLOCKER: Host filesystem read route is enabled by default
-HOSTPATH_ROUTE_ENABLED = True
+# FIX: Host filesystem read route is disabled by default
+HOSTPATH_ROUTE_ENABLED = (os.getenv("HOSTPATH_ROUTE_ENABLED", "False").lower() == "true")
 
-# BLOCKER: Background worker has no graceful shutdown flag
-BACKGROUND_WORKER_HAS_STOP_EVENT = False
+# FIX: Background worker now has a graceful shutdown mechanism
+BACKGROUND_WORKER_HAS_STOP_EVENT = True
 
+# Global stop event for the background worker
+stop_event = threading.Event()
 
 class ConfigurationError(Exception):
     """Raised when one or more startup configuration checks fail."""
@@ -93,13 +98,15 @@ def write_to_db():
         return f"DB error: {str(e)}"
 
 
-@app.route("/hostpath")
-def list_host_path():
-    try:
-        with open("/etc/passwd", "r") as f:
-            return f.read()
-    except Exception as e:
-        return f"Error reading host file: {str(e)}"
+# Only define the route if HOSTPATH_ROUTE_ENABLED is True, otherwise it won't be exposed
+if HOSTPATH_ROUTE_ENABLED:
+    @app.route("/hostpath")
+    def list_host_path():
+        try:
+            with open("/etc/passwd", "r") as f:
+                return f.read()
+        except Exception as e:
+            return f"Error reading host file: {str(e)}"
 
 
 @app.route("/shell")
@@ -111,15 +118,19 @@ def run_shell():
         return f"Shell error: {str(e)}"
 
 
-def background_worker():
-    while True:
+def background_worker(stop_event):
+    while not stop_event.is_set():
         with open("/tmp/heartbeat.txt", "a") as f:
             f.write("alive\n")
+        stop_event.wait(5) # Wait for 5 seconds or until stop_event is set
 
 
-threading.Thread(target=background_worker, daemon=True).start()
+threading.Thread(target=background_worker, args=(stop_event,), daemon=True).start()
 
 if __name__ == "__main__":
     # Fail fast: run config validation before the server ever binds a socket
     validate_config()
-    app.run(host="0.0.0.0", port=PORT)
+    try:
+        app.run(host="0.0.0.0", port=PORT)
+    finally:
+        stop_event.set() # Signal the background worker to stop upon app shutdown
