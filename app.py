@@ -8,6 +8,9 @@ from flask import Flask, request
 app = Flask(__name__)
 
 # FIX: DB path is now configurable and uses a container-writable demo path
+# For durable storage in a container, it's recommended to mount a volume
+# and set the DB_PATH environment variable to a path within that volume.
+# E.g., docker run -e DB_PATH=/mnt/data/myapp/data.db -v myvolume:/mnt/data ...
 DB_PATH = os.getenv("DB_PATH", "/tmp/myapp/data.db")
 
 
