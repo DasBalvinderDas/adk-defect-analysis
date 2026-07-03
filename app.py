@@ -8,7 +8,7 @@ from flask import Flask, request
 app = Flask(__name__)
 
 # ❌ BLOCKER: Writes to host filesystem (local persistence)
-DB_PATH = "/var/lib/myapp/data.db"  # NOT recommended for containers
+DB_PATH = "./data.db"  # NOT recommended for containers
 
 # ❌ BLOCKER: Hardcoded secret (Security Issue)
 API_KEY = "sk_test_1234567890abcdef"
