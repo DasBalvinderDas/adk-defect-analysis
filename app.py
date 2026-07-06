@@ -3,6 +3,7 @@ import sqlite3
 import threading
 import subprocess
 import logging
+import sys # Import sys for stdout
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -21,21 +22,26 @@ def ensure_db_directory() -> None:
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
-# BLOCKER: Hardcoded secret Security Issue
-API_KEY = "sk_test_1234567890abcdef"
+# FIX: Hardcoded secret Security Issue - load from environment
+API_KEY = os.getenv("API_KEY")
 
-# BLOCKER: Uses privileged port
-PORT = 80  # Should be 8080+ in containers
+# FIX: Uses privileged port - load from environment, default to 8080
+PORT = int(os.getenv("PORT", 8080))
 
-# BLOCKER: Logging to file instead of stdout
-LOG_FILE_PATH = "/tmp/app.log"
-logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO)
+# FIX: Logging to file instead of stdout - log to stdout by default
+LOG_TO_STDOUT = os.getenv("LOG_TO_STDOUT", "true").lower() == "true"
+if LOG_TO_STDOUT:
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+else:
+    LOG_FILE_PATH = os.getenv("LOG_FILE_PATH", "/tmp/app.log")
+    logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO)
 
-# BLOCKER: Host filesystem read route is enabled by default
-HOSTPATH_ROUTE_ENABLED = True
+# FIX: Host filesystem read route is enabled by default - disable by default
+HOSTPATH_ROUTE_ENABLED = os.getenv("HOSTPATH_ROUTE_ENABLED", "false").lower() == "true"
 
-# BLOCKER: Background worker has no graceful shutdown flag
-BACKGROUND_WORKER_HAS_STOP_EVENT = False
+# FIX: Background worker has no graceful shutdown flag - implement graceful shutdown
+stop_event = threading.Event() # Create a stop event for the worker
+BACKGROUND_WORKER_HAS_STOP_EVENT = True # This is now true
 
 
 class ConfigurationError(Exception):
@@ -51,19 +57,20 @@ def validate_config() -> None:
     """
     errors = []
 
-    if API_KEY.startswith("sk_test_"):
-        errors.append("API_KEY is a hardcoded test key — must be loaded from environment/secret manager")
+    if not API_KEY or API_KEY.startswith("sk_test_"):
+        errors.append("API_KEY is missing or is a hardcoded test key — must be loaded from environment/secret manager")
 
     if PORT < 1024:
         errors.append(f"PORT={PORT} is a privileged port — use PORT >= 1024 in containers")
 
-    if LOG_FILE_PATH != "stdout":
-        errors.append(f"Logging writes to '{LOG_FILE_PATH}' instead of stdout — breaks log aggregation in containers")
+    # The logging check now depends on LOG_TO_STDOUT
+    if not LOG_TO_STDOUT:
+        errors.append("Logging writes to a file instead of stdout — breaks log aggregation in containers (set LOG_TO_STDOUT=true)")
 
     if HOSTPATH_ROUTE_ENABLED:
-        errors.append("/hostpath route exposes host filesystem reads and must be disabled by default")
+        errors.append("/hostpath route exposes host filesystem reads and must be disabled by default (set HOSTPATH_ROUTE_ENABLED=false)")
 
-    if not BACKGROUND_WORKER_HAS_STOP_EVENT:
+    if not BACKGROUND_WORKER_HAS_STOP_EVENT: # This should now always be true
         errors.append("background_worker() has no graceful shutdown mechanism (infinite loop, no stop signal)")
 
     if errors:
@@ -95,6 +102,8 @@ def write_to_db():
 
 @app.route("/hostpath")
 def list_host_path():
+    if not HOSTPATH_ROUTE_ENABLED:
+        return "Hostpath route is disabled.", 403
     try:
         with open("/etc/passwd", "r") as f:
             return f.read()
@@ -112,9 +121,10 @@ def run_shell():
 
 
 def background_worker():
-    while True:
+    while not stop_event.is_set(): # Loop until stop_event is set
         with open("/tmp/heartbeat.txt", "a") as f:
             f.write("alive\n")
+        stop_event.wait(5) # Wait for a short period or until signaled to stop
 
 
 threading.Thread(target=background_worker, daemon=True).start()
